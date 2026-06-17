@@ -49,16 +49,25 @@
         <canvas id="game" width="600" height="400"></canvas>
 
         <script>
-            // ==== 1. Setup ====
+            // ==== Setup ====
             const canvas = document.getElementById("game");
             const ctx = canvas.getContext("2d");
 
             const PATH_COLOR = "#3a4a5c";
             const ENEMY_COLOR = "#ff8c5a";
+            const TOWER_COLOR = "#4fd6c4";
+            const GRID_COLOR = "#22303c";
             const LABEL_COLOR = "#8b97a8";
 
             const LAPS_LABEL = "Laps: ";
-            // ==== 2. The Path ====
+            const TOWERS_LABEL = "Towers: ";
+
+            // ==== The Grid ====
+            const CELL = 40;
+            const COLS = canvas.width  / CELL;
+            const ROWS = canvas.height / CELL;
+
+            // ==== The Path ====
             const path = [
                 { x: 0, y: 80 },
                 { x: 480, y: 80 },
@@ -67,7 +76,8 @@
                 { x: 120, y: 320 },
                 { x: 600, y: 320 },
             ];
-            // ==== 3. The Enemy ====
+
+            // ==== The Enemy ====
             let enemy  = {
                 x: path[0].x,
                 y: path[0].y,
@@ -83,7 +93,19 @@
                 enemy.target = 1;
             }
 
-            // ==== 4. Update: logic per frame ====
+            // ==== The Towers ====
+
+            let towers = [];
+
+            function isOccupied(col, row) {
+                return towers.some(t => t.col === col && t.row === row);
+            }
+
+            // ==== Mouse Input ====
+
+            
+
+            // ==== Update: logic per frame ====
 
             function update() {
                 const t = path[enemy.target];
@@ -105,7 +127,7 @@
                 }
             }
 
-            // ==== 5. Draw: picture per frame ====
+            // ==== Draw: picture per frame ====
             function draw() {
                 ctx.clearRect(0,0, canvas.width, canvas.height);
 
@@ -128,7 +150,7 @@
                 ctx.fillText(LAPS_LABEL + laps, 12, 24);
             }
 
-            // ==== 6. The Game Loop ====
+            // ==== The Game Loop ====
             function loop() {
                 update();
                 draw();
