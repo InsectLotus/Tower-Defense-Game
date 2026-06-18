@@ -57,15 +57,26 @@
             const ENEMY_COLOR = "#ff8c5a";
             const TOWER_COLOR = "#4fd6c4";
             const GRID_COLOR = "#22303c";
+            const RANGE_COLOR = "rgba(79,214,196,0.12)";
+            const ZAP_COLOR = "#cdeef0";
+            const HPBAR_BG = "#3a2218";
+            const HPBAR_FG = "#ff8c5a";
             const LABEL_COLOR = "#8b97a8";
 
-            const LAPS_LABEL = "Laps: ";
+            const LAPS_LABEL = "Leaks: ";
             const TOWERS_LABEL = "Towers: ";
 
             // ==== The Grid ====
             const CELL = 40;
             const COLS = canvas.width  / CELL;
             const ROWS = canvas.height / CELL;
+
+            // ==== Turning Knobs ====
+            const ENEMY_HP = 6;
+            const ENEMY_SPEED = 2;
+            const TOWER_RANGE = 95;
+            const DAMAGE = 2;
+            const FIRE_EVERY = 25;
 
             // ==== The Path ====
             const path = [
@@ -78,19 +89,19 @@
             ];
 
             // ==== The Enemy ====
-            let enemy  = {
-                x: path[0].x,
-                y: path[0].y,
-                speed: 2,
-                target: 1,
-            };
+            let enemies = [];
+            let leaks = 0;
 
-            let laps = 0;
-
-            function reset() {
-                enemy.x = path[0].x;
-                enemy.y = path[0].y;
-                enemy.target = 1;
+            function makeEnemy() {
+                return {
+                    x: path[0].x,
+                    y: path[0].y,
+                    speed: ENEMY_SPEED,
+                    target: 1,
+                    hp: ENEMY_HP,
+                    maxHp: ENEMY_HP,
+                    alive: true,
+                };
             }
 
             // ==== The Towers ====
@@ -101,35 +112,102 @@
                 return towers.some(t => t.col === col && t.row === row);
             }
 
+            function towerCenter(t) {
+                return { x: t.col * CELL + CELL / 2, y: t.row * CELL + CELL / 2 };
+            }
+
             // ==== Mouse Input ====
 
-            
+            canvas.addEventListener("click", (e) => {
+                const rect = canvas.getBoundingClientRect();
+
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+
+                const mouseX = (e.clientX - rect.left) * scaleX;
+                const mouseY = (e.clientY - rect.top) * scaleY;
+
+                const col = Math.floor(mouseX / CELL);
+                const row = Math.floor(mouseY / CELL);
+
+                if (col >= 0 && col < COLS && row >= 0 && row < ROWS && !isOccupied(col, row)) {
+                    towers.push({ col, row, range: TOWER_RANGE, cooldown: 0});
+                }
+            });
+
+            let zaps = [];
 
             // ==== Update: logic per frame ====
-
             function update() {
-                const t = path[enemy.target];
-                const dx = t.x - enemy.x;
-                const dy = t.y - enemy.y;
+                zaps = [];
+            
+
+            for (const e of enemies) {
+                const t = path[e.target];
+                const dx = t.x - e.x;
+                const dy = t.y - e.y;
                 const dist = Math.hypot(dx, dy);
 
-                if (dist < enemy.speed) {
-                    enemy.x = t.x;
-                    enemy.y = t.y;
-                    enemy.target++;
-                    if (enemy.target >= path.length) {
-                        laps++;
-                        reset();
+                if (dist < e.speed) {
+                    e.x = t.x;
+                    e.y = t.y;
+                    e.target++;
+                    if (e.target >= path.length) {
+                        leaks++;
+                        e.alive = false;
                     }
                 } else {
-                    enemy.x += (dx / dist) * enemy.speed;
-                    enemy.y += (dy / dist) * enemy.speed;
+                    e.x += (dx / dist) * e.speed;
+                    e.y += (dy / dist) * e.speed;
                 }
             }
+
+            // ==== Towers shoot ====
+            for (const toer of towers) {
+                if (tower.cooldown > 0) tower.cooldown--;
+
+                const c = towerCenter(tower);
+
+                let nearest = null;
+                let nearestDist = Infinity;
+                for (const e of enemies) {
+                    if (!e.alive) continue;
+                    const d = Math.hypot(e.x - c.x, e.y -c.y);
+                    if (d <= tower.range && d < nearestDist) {
+                        nearest = e;
+                        nearestDist = d;
+                    }
+                }
+
+                if (nearest && tower.cooldown <= 0) {
+                    nearest.hp -= DAMAGE;
+                    if (nearest.hp <= 0) nearest.alive = false;
+                    tower.cooldown = FIRE_EVERY;
+                    zaps.push({ x1: c.x, y1: c.y, x2: nearest.x, y2: nearest.y });
+                }
+            }
+
+            enemies = enemies.filter (e => e.alive);
+
+            if (enemies.length === 0) enemies.push(makeEnemy());
+        }
 
             // ==== Draw: picture per frame ====
             function draw() {
                 ctx.clearRect(0,0, canvas.width, canvas.height);
+
+                ctx.strokeStyle = GRID_COLOR;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                for ( let c = 0; c <= COLS; c++) {
+                    ctx.moveTo(c * CELL, 0);
+                    ctx.lineTo(c * CELL, canvas.height);
+                }
+                for (let r = 0; r <= ROWS; r++) {
+                    ctx.moveTo(0, r * CELL);
+                    ctx.lineTo(canvas.width, r * CELL);
+                }
+                ctx.stroke();
 
                 ctx.strokeStyle = PATH_COLOR;
                 ctx.lineWidth = 14;
@@ -137,8 +215,16 @@
                 ctx.lineJoin = "round";
                 ctx.beginPath();
                 ctx.moveTo(path[0].x, path[0].y);
-                for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+                for ( let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
                 ctx.stroke();
+
+                ctx.fillStyle = TOWER_COLOR;
+                for (const tower of towers) {
+                    const cx = tower.col * CELL + CELL / 2;
+                    const cy = tower.row * CELL + CELL / 2;
+                    const s = CELL - 12;
+                    ctx.fillRect(cx - s / 2, cy - s / 2, s, s);
+                }
 
                 ctx.fillStyle = ENEMY_COLOR;
                 ctx.beginPath();
@@ -148,6 +234,7 @@
                 ctx.fillStyle = LABEL_COLOR;
                 ctx.font = "13px sans-serif";
                 ctx.fillText(LAPS_LABEL + laps, 12, 24);
+                ctx.fillText(TOWERS_LABEL + towers.length, 12, 44);
             }
 
             // ==== The Game Loop ====
