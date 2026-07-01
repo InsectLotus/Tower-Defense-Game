@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>TD - STEP 3: The Projectiles</title>
+        <title>TD - STEP 5: Waves</title>
         <style>
             :root {
                 --bg: #11161d;
@@ -45,8 +45,8 @@
         </style>
     </head>
     <body>
-        <h1>Tower Defense - Step 3b: flying projectiles</h1>
-        <p class="hint">Place towers near the Path. They fire projectiles at the nearest enemy.</p>
+        <h1>Tower Defense - Step 5a: Lives and Game Over</h1>
+        <p class="hint">Lives and Game Over screen added.</p>
         <canvas id="game" width="600" height="400"></canvas>
 
         <script>
@@ -63,10 +63,14 @@
             const HPBAR_BG = "#3a2218";
             const HPBAR_FG = "#ff8c5a";
             const LABEL_COLOR = "#8b97a8";
+            const OVERLAY_BG = "rgba(17, 22, 29, 0.78)";
+            const OVERLAY_FG = "#ff8c5a";
 
-            const LAPS_LABEL = "Leaks: ";
+            const LEAKS_LABEL = "Leaks: ";
             const TOWERS_LABEL = "Towers: ";
             const MONEY_LABEL = "Money: ";
+            const LIVES_LABEL = "Lives: ";
+            const WAVE_LABEL = "Wave: ";
 
             // ==== The Grid ====
             const CELL = 40;
@@ -86,6 +90,16 @@
             const TOWER_COST = 25;
             const KILL_REWARD = 5;
 
+            // ==== Lives ====
+            const START_LIVES = 5;  //für testzwecke auf 5 runtergedreht, Später wieder auf 20 hochdrehen
+
+            // ==== Waves ====
+            const SPAWN_GAP = 45;
+            const WAVE_PAUSE = 120;
+            function enemiesInWave(w) {
+                return 2 + w;
+            }
+
             // ==== The Path ====
             const path = [
                 { x: 0, y: 80 },
@@ -99,6 +113,8 @@
             // ==== The Enemy ====
             let enemies = [];
             let leaks = 0;
+            let lives = START_LIVES;
+            let gameOver = false;
 
             function makeEnemy() {
                 return {
@@ -111,6 +127,13 @@
                     alive: true,
                 };
             }
+
+            // ==== Wave state ====
+            let wave = 0;
+            let toSpawn = 0;
+            let spawnTimer = 0;
+            let betweenWaves = true;
+            let waveTimer = 90;
 
             // ==== The Towers ====
 
@@ -132,6 +155,8 @@
             // ==== Mouse Input ====
 
             canvas.addEventListener("click", (e) => {
+                if (gameOver) return;
+
                 const rect = canvas.getBoundingClientRect();
 
                 const scaleX = canvas.width / rect.width;
@@ -153,6 +178,7 @@
 
             // ==== Update: logic per frame ====
             function update() {
+                if (gameOver) return;
 
                 for (const e of enemies) {
                     const t = path[e.target];
@@ -166,6 +192,11 @@
                         e.target++;
                         if(e.target >= path.length) {
                             leaks++;
+                            lives -= 1;
+                            if (lives <= 0) {
+                                lives = 0;
+                                gameOver = true;
+                            }
                             e.alive = false;
                         }
                     } else {
@@ -230,9 +261,32 @@
                 enemies = enemies.filter(e => e.alive);
                 projectiles = projectiles.filter(p => p.alive);
 
-                if (enemies.length === 0) enemies.push(makeEnemy());
+                // ==== wave/ spawn state machine ====
+                if (betweenWaves) {
+                    waveTimer--;
+                    if (waveTimer <= 0) {
+                        wave++;
+                        toSpawn = enemiesInWave(wave);
+                        spawnTimer = 0;
+                        betweenWaves = false;
+                    }
+                } else {
+                    if (toSpawn > 0) {
+                        spawnTimer--;
+                        if (spawnTimer <= 0) {
+                            enemies.push(makeEnemy());
+                            toSpawn--;
+                            spawnTimer = SPAWN_GAP;
+                        }
+                    }
+                    if (toSpawn === 0 && enemies.length === 0) {
+                        betweenWaves = true;
+                        waveTimer = WAVE_PAUSE;
+                    }
+                }
             }
 
+            // ==== Draw picture per frame ====
             function draw() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -290,11 +344,29 @@
                     ctx.fillRect(e.x - w / 2, e.y -18, w * (e.hp / e.maxHp), h);
                 }
 
+                // ==== Labels ==== 
+                ctx.textAlign = "left";
                 ctx.fillStyle = LABEL_COLOR;
                 ctx.font = "13px sans-serif";
-                ctx.fillText(MONEY_LABEL + money, 12, 44);
+                ctx.fillText(LIVES_LABEL + lives, 80, 24);
+                ctx.fillText(MONEY_LABEL + money, 12, 64);
+                ctx.fillText(WAVE_LABEL + wave, 80, 44);
                 ctx.fillText(LAPS_LABEL + leaks, 12, 24);
                 ctx.fillText(TOWERS_LABEL + towers.length, 12, 44);
+
+                if (gameOver) {
+                    ctx.fillStyle = OVERLAY_BG;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    ctx.textAlign = "center";
+                    ctx.fillStyle = OVERLAY_FG;
+                    ctx.font = "bold 34px sans-serif";
+                    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 6);
+
+                    ctx.fillStyle = LABEL_COLOR;
+                    ctx.font = "14px sans-serif";
+                    ctx.fillText(leaks + " enemies got through", canvas.width / 2, canvas.height / 2 + 22);
+                }
             }
 
             function loop() {
