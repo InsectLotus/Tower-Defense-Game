@@ -55,7 +55,6 @@
             const ctx = canvas.getContext("2d");
 
             const PATH_COLOR = "#3a4a5c";
-            const ENEMY_COLOR = "#ff8c5a";
             const TOWER_COLOR = "#4fd6c4";
             const GRID_COLOR = "#22303c";
             const RANGE_COLOR = "rgba(79,214,196,0.12)";
@@ -78,8 +77,6 @@
             const ROWS = canvas.height / CELL;
 
             // ==== Tuning Knobs ====
-            const ENEMY_HP = 6;
-            const ENEMY_SPEED = 2;
             const TOWER_RANGE = 95;
             const DAMAGE = 2;
             const FIRE_EVERY = 25;
@@ -88,10 +85,23 @@
             // ==== Economy ====
             const START_MONEY = 100;
             const TOWER_COST = 25;
-            const KILL_REWARD = 5;
 
             // ==== Lives ====
             const START_LIVES = 5;  //für testzwecke auf 5 runtergedreht, Später wieder auf 20 hochdrehen
+
+            // ==== Enemy Types ====
+            const ENEMY_TYPES = {
+                grunt: { hp: 6, speed: 2.0, damage: 1, reward: 5, color: "#ff8c5a", radius : 10 },
+                runner: { hp: 3, speed: 3.6, damage: 1, reward: 4, color: "#ffd166", radius: 8 },
+                tank: { hp: 18, speed: 1.2, damage: 3, reward: 12, color: "#c77dff", radius: 13 },
+            };
+
+            function pickEnemyType() {
+                const r = Math.random();
+                if (r < 0.15) return "tank";
+                if (r < 0.45) return "runner";
+                return "grunt";
+            }
 
             // ==== Waves ====
             const SPAWN_GAP = 45;
@@ -351,7 +361,7 @@
                 ctx.fillText(LIVES_LABEL + lives, 80, 24);
                 ctx.fillText(MONEY_LABEL + money, 12, 64);
                 ctx.fillText(WAVE_LABEL + wave, 80, 44);
-                ctx.fillText(LAPS_LABEL + leaks, 12, 24);
+                ctx.fillText(LEAKS_LABEL + leaks, 12, 24);
                 ctx.fillText(TOWERS_LABEL + towers.length, 12, 44);
 
                 if (gameOver) {
